@@ -176,3 +176,7 @@ What costs money is *producing* certificates at scale.
 ## License
 
 Apache-2.0.
+
+---
+
+Part of **[certified discovery](https://nickharris808.github.io/certified-discovery/)** — ten artifacts built on one asymmetry: checking a proof is cheap and auditable, so the thing that produced it does not have to be trusted.
