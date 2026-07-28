@@ -144,3 +144,56 @@ def test_env_flag():
     assert verify.env_flag("X_FLAG") is False
     del os.environ["X_FLAG"]
     assert verify.env_flag("X_FLAG", default=True) is True
+
+
+# --------------------------------------------------------------------------- #
+# SARIF output -- so a refusal reaches the Security tab, not just the job log
+# --------------------------------------------------------------------------- #
+
+
+def test_sarif_is_written_for_a_refusal(workspace, monkeypatch):
+    out = workspace / "nested" / "certkit.sarif"
+    monkeypatch.setenv("INPUT_SPEC", str(workspace / "bad.spec.json"))
+    monkeypatch.setenv("INPUT_CERT", str(workspace / "bad.cert.json"))
+    monkeypatch.setenv("INPUT_SARIF", str(out))
+    assert verify.run() == 1
+
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    assert doc["version"] == "2.1.0"
+    run_ = doc["runs"][0]
+    assert run_["tool"]["driver"]["name"] == "certkit"
+    assert len(run_["results"]) == 1
+    result = run_["results"][0]
+    assert result["ruleId"] == "certkit/refused"
+    assert result["level"] == "error"
+    assert result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]
+    # Every ruleId used must be declared, or GitHub rejects the upload.
+    declared = {r["id"] for r in run_["tool"]["driver"]["rules"]}
+    assert {r["ruleId"] for r in run_["results"]} <= declared
+
+
+def test_sarif_has_no_results_when_everything_is_accepted(workspace, monkeypatch):
+    out = workspace / "certkit.sarif"
+    monkeypatch.setenv("INPUT_SPEC", str(workspace / "hb.spec.json"))
+    monkeypatch.setenv("INPUT_CERT", str(workspace / "hb.cert.json"))
+    monkeypatch.setenv("INPUT_SARIF", str(out))
+    assert verify.run() == 0
+    assert json.loads(out.read_text(encoding="utf-8"))["runs"][0]["results"] == []
+
+
+def test_no_sarif_written_when_the_input_is_empty(workspace, monkeypatch):
+    monkeypatch.setenv("INPUT_SPEC", str(workspace / "hb.spec.json"))
+    monkeypatch.setenv("INPUT_CERT", str(workspace / "hb.cert.json"))
+    monkeypatch.setenv("INPUT_SARIF", "")
+    assert verify.run() == 0
+    assert list(workspace.glob("*.sarif")) == []
+
+
+def test_unwritable_sarif_path_does_not_change_the_verdict(workspace, monkeypatch, capsys):
+    """Reporting must never override deciding."""
+    (workspace / "a-file").write_text("not a directory", encoding="utf-8")
+    monkeypatch.setenv("INPUT_SPEC", str(workspace / "hb.spec.json"))
+    monkeypatch.setenv("INPUT_CERT", str(workspace / "hb.cert.json"))
+    monkeypatch.setenv("INPUT_SARIF", str(workspace / "a-file" / "x" / "y.sarif"))
+    assert verify.run() == 0  # still accepted
+    assert "::warning::" in capsys.readouterr().out

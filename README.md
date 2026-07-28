@@ -46,6 +46,7 @@ log.
 | `fail-on-refusal` | `true` | set `false` to report without failing while adopting |
 | `certkit-ref` | `main` | git ref of certkit to install — branch, tag, or SHA. **Pin this.** |
 | `certkit-version` | — | PyPI specifier. certkit is not on PyPI yet, so leave this empty. |
+| `sarif` | — | path to write a SARIF 2.1.0 report to, for the Security tab |
 | `summary` | `true` | write the table to the job summary |
 
 ## Outputs
@@ -55,6 +56,37 @@ log.
 | `accepted` | number of certificates accepted |
 | `refused` | number refused |
 | `over-acceptance` | total over-acceptance across counted specs, empty if counting was off |
+
+## Send refusals to the Security tab
+
+A finding in a job log is a finding nobody reads. Write SARIF and upload it, and a refused
+certificate becomes a code-scanning alert on the pull request:
+
+```yaml
+jobs:
+  certkit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write     # required by upload-sarif
+    steps:
+      - uses: actions/checkout@v4
+      - uses: nickharris808/certkit-action@main
+        with:
+          spec: certs/*.spec.json
+          sarif: certkit.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()             # upload even when the gate failed the job
+        with:
+          sarif_file: certkit.sarif
+```
+
+Two rules are emitted, both at `error` level: `certkit/refused` (the proof did not check out) and
+`certkit/unverified` (it checked out but was never bound to the spec). Each alert points at the spec
+file and carries the checker's reason.
+
+Writing SARIF never changes the verdict. If the file cannot be written you get a `::warning::` and
+the job's pass/fail is exactly what it would have been.
 
 ## Counting how bad a refusal is
 
@@ -95,9 +127,9 @@ it exists so the switch to PyPI later needs no change to this action.
 
 ## Why a script, not a `run:` block
 
-The verification logic lives in `verify.py` rather than inline YAML, so it has a test suite — 14
-tests covering exit codes, globbing, missing files, the counting path, and the GitHub output and
-summary side effects. An action whose logic is embedded in YAML cannot be tested, which is how
+The verification logic lives in `verify.py` rather than inline YAML, so it has a test suite — 18
+tests covering exit codes, globbing, missing files, the counting path, SARIF emission, and the
+GitHub output and summary side effects. An action whose logic is embedded in YAML cannot be tested, which is how
 actions end up broken for months without anyone noticing.
 
 Run them locally:

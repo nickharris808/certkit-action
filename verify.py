@@ -64,6 +64,82 @@ def write_summary(markdown: str) -> None:
         fh.write(markdown + "\n")
 
 
+SARIF_RULES = [
+    {
+        "id": "certkit/refused",
+        "name": "CertificateRefused",
+        "shortDescription": {"text": "A proof certificate did not check out"},
+        "fullDescription": {
+            "text": (
+                "The supplied multipliers do not refute the obligation rebuilt from this "
+                "spec. That means the safety property is NOT PROVEN over the declared "
+                "domain. It does not mean the property is false -- certkit refuses, it "
+                "never certifies the negation."
+            )
+        },
+        "defaultConfiguration": {"level": "error"},
+        "help": {
+            "text": "Run `certkit explain --spec <spec> --cert <cert>` to see the arithmetic."
+        },
+    },
+    {
+        "id": "certkit/unverified",
+        "name": "CertificateUnverified",
+        "shortDescription": {"text": "A certificate was not bound to its spec"},
+        "fullDescription": {
+            "text": (
+                "The multipliers checked out, but fingerprint verification was disabled, "
+                "so nothing establishes that this certificate was issued for this spec. "
+                "This is not an acceptance."
+            )
+        },
+        "defaultConfiguration": {"level": "error"},
+        "help": {"text": "Re-run without --no-fingerprint, or bind the certificate to the spec."},
+    },
+]
+
+
+def sarif_document(results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Wrap findings in a SARIF 2.1.0 run.
+
+    SARIF is how a security finding reaches the GitHub Security tab instead of
+    dying in a job log nobody opens. The schema is large; only the parts GitHub
+    actually consumes are emitted here.
+    """
+    return {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "certkit",
+                        "informationUri": "https://github.com/nickharris808/certkit",
+                        "rules": SARIF_RULES,
+                    }
+                },
+                "results": results,
+            }
+        ],
+    }
+
+
+def sarif_result(rule_id: str, spec_path: Path, message: str) -> Dict[str, Any]:
+    return {
+        "ruleId": rule_id,
+        "level": "error",
+        "message": {"text": message},
+        "locations": [
+            {
+                "physicalLocation": {
+                    "artifactLocation": {"uri": spec_path.as_posix()},
+                    "region": {"startLine": 1},
+                }
+            }
+        ],
+    }
+
+
 def run(argv: Optional[List[str]] = None) -> int:
     spec_glob = os.environ.get("INPUT_SPEC", "").strip()
     cert_arg = os.environ.get("INPUT_CERT", "").strip()
@@ -71,6 +147,7 @@ def run(argv: Optional[List[str]] = None) -> int:
     box_text = os.environ.get("INPUT_BOX", "").strip()
     fail_on_refusal = env_flag("INPUT_FAIL_ON_REFUSAL", True)
     want_summary = env_flag("INPUT_SUMMARY", True)
+    sarif_path = os.environ.get("INPUT_SARIF", "").strip()
 
     if not spec_glob:
         print("::error::input 'spec' is required", file=sys.stderr)
@@ -91,6 +168,7 @@ def run(argv: Optional[List[str]] = None) -> int:
         print("::error::input 'box' is required when 'count' is true", file=sys.stderr)
         return 2
 
+    sarif_results: List[Dict[str, Any]] = []
     accepted = refused = unverified = 0
     total_over = 0
     counted_any = False
@@ -140,6 +218,13 @@ def run(argv: Optional[List[str]] = None) -> int:
             rows.append(f"| `{name}` | **{verdict}** | {reasons} |")
             if verdict == "UNVERIFIED":
                 unverified += 1
+            sarif_results.append(
+                sarif_result(
+                    "certkit/unverified" if verdict == "UNVERIFIED" else "certkit/refused",
+                    spec_path,
+                    f"{verdict}: {name} -- {reasons}",
+                )
+            )
             if fail_on_refusal:
                 exit_code = 1
 
@@ -170,6 +255,18 @@ def run(argv: Optional[List[str]] = None) -> int:
     write_output("accepted", str(accepted))
     write_output("refused", str(refused))
     write_output("over_acceptance", str(total_over) if counted_any else "")
+
+    if sarif_path:
+        try:
+            Path(sarif_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(sarif_path).write_text(
+                json.dumps(sarif_document(sarif_results), indent=2), encoding="utf-8"
+            )
+            print(f"certkit: wrote {len(sarif_results)} finding(s) to {sarif_path}")
+        except OSError as exc:
+            # Reporting is not the verdict. A SARIF write failure must not turn a
+            # refusal into a pass, nor an acceptance into a failure.
+            print(f"::warning::could not write SARIF to {sarif_path}: {exc}")
 
     tail = f", {unverified} of them unverified" if unverified else ""
 

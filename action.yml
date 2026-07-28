@@ -53,6 +53,13 @@ inputs:
     description: "Write results to the GitHub step summary."
     required: false
     default: "true"
+  sarif:
+    description: >-
+      Path to write a SARIF 2.1.0 report to. Upload it with
+      github/codeql-action/upload-sarif to surface refusals in the Security tab
+      instead of only the job log. Empty (the default) writes nothing.
+    required: false
+    default: ""
 
 outputs:
   accepted:
@@ -105,4 +112,5 @@ runs:
         INPUT_BOX: ${{ inputs.box }}
         INPUT_FAIL_ON_REFUSAL: ${{ inputs.fail-on-refusal }}
         INPUT_SUMMARY: ${{ inputs.summary }}
+        INPUT_SARIF: ${{ inputs.sarif }}
       run: python "${{ github.action_path }}/verify.py"
