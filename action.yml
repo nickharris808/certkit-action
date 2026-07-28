@@ -34,8 +34,19 @@ inputs:
       without failing (useful when first adopting).
     required: false
     default: "true"
+  certkit-ref:
+    description: >-
+      Git ref of certkit to install -- a branch, tag, or full commit SHA.
+      Defaults to 'main'. This is the way to pin today: set it to a commit SHA
+      for a reproducible build.
+    required: false
+    default: "main"
   certkit-version:
-    description: "Version specifier for certkit, e.g. '==0.1.0'. Pin this."
+    description: >-
+      PyPI version specifier for certkit, e.g. '==0.2.0'. Leave empty unless
+      certkit has actually been published to PyPI -- it has not been yet, so
+      setting this will fail with "no matching distribution". Use 'certkit-ref'
+      to pin instead.
     required: false
     default: ""
   summary:
@@ -65,11 +76,20 @@ runs:
     - name: Install certkit
       shell: bash
       run: |
+        set -euo pipefail
         python -m pip install --quiet --upgrade pip
+        REF="${{ inputs.certkit-ref }}"
+        REF="${REF:-main}"
         if [ -n "${{ inputs.certkit-version }}" ]; then
-          python -m pip install --quiet "certkit${{ inputs.certkit-version }}"
+          # Opt-in PyPI path. certkit is not published yet, so this will fail
+          # until it is -- say so clearly rather than emitting a raw pip error.
+          echo "::notice::installing certkit from PyPI with specifier '${{ inputs.certkit-version }}'"
+          if ! python -m pip install --quiet "certkit${{ inputs.certkit-version }}"; then
+            echo "::error::certkit is not on PyPI yet, so 'certkit-version' cannot be satisfied. Remove that input (the action installs from GitHub by default) or use 'certkit-ref' to pin to a commit SHA."
+            exit 1
+          fi
         else
-          python -m pip install --quiet "certkit@git+https://github.com/nickharris808/certkit@main"
+          python -m pip install --quiet "certkit@git+https://github.com/nickharris808/certkit@${REF}"
         fi
         if [ "${{ inputs.count }}" = "true" ]; then
           python -m pip install --quiet "exploit-counter@git+https://github.com/nickharris808/exploit-counter@main"

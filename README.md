@@ -10,6 +10,10 @@
 
 <a id="usage"></a>
 
+## 30-second quickstart
+
+Add one step to any workflow:
+
 ```yaml
 - uses: nickharris808/certkit-action@main
   with:

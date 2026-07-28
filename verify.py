@@ -91,7 +91,7 @@ def run(argv: Optional[List[str]] = None) -> int:
         print("::error::input 'box' is required when 'count' is true", file=sys.stderr)
         return 2
 
-    accepted = refused = 0
+    accepted = refused = unverified = 0
     total_over = 0
     counted_any = False
     rows: List[str] = []
@@ -121,6 +121,11 @@ def run(argv: Optional[List[str]] = None) -> int:
         report = check_certificate(spec, cert)
         name = spec.get("name", spec_path.stem)
 
+        # certkit 0.2+ reports three verdicts. UNVERIFIED means the arithmetic
+        # checked out but a precondition was never established -- it is not an
+        # acceptance, and calling it "REFUSED" would misdescribe it.
+        verdict = getattr(report, "verdict", "ACCEPTED" if report.ok else "REFUSED")
+
         if report.ok:
             accepted += 1
             detail = f"{len(report.obligations)} obligation(s) discharged"
@@ -131,8 +136,10 @@ def run(argv: Optional[List[str]] = None) -> int:
             reasons = "; ".join(
                 o["reason"] for o in report.obligations if o["reason"]
             ) or report.reason
-            print(f"::error file={spec_path}::certkit REFUSED {name}: {reasons}")
-            rows.append(f"| `{name}` | **REFUSED** | {reasons} |")
+            print(f"::error file={spec_path}::certkit {verdict} {name}: {reasons}")
+            rows.append(f"| `{name}` | **{verdict}** | {reasons} |")
+            if verdict == "UNVERIFIED":
+                unverified += 1
             if fail_on_refusal:
                 exit_code = 1
 
@@ -164,15 +171,17 @@ def run(argv: Optional[List[str]] = None) -> int:
     write_output("refused", str(refused))
     write_output("over_acceptance", str(total_over) if counted_any else "")
 
+    tail = f", {unverified} of them unverified" if unverified else ""
+
     if want_summary:
         head = (
             "## certkit\n\n"
-            f"**{accepted} accepted, {refused} refused**\n\n"
+            f"**{accepted} accepted, {refused} refused{tail}**\n\n"
             "| item | result | detail |\n|---|---|---|\n"
         )
         write_summary(head + "\n".join(rows))
 
-    print(f"certkit: {accepted} accepted, {refused} refused")
+    print(f"certkit: {accepted} accepted, {refused} refused{tail}")
     if refused and not fail_on_refusal:
         print("certkit: fail-on-refusal is false; not failing the job")
     return exit_code
