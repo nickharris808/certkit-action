@@ -44,7 +44,8 @@ log.
 | `count` | `false` | also run `exploit-counter` and report exact over-acceptance |
 | `box` | — | variable box for counting, e.g. `payload=0:255,record_len=0:255` |
 | `fail-on-refusal` | `true` | set `false` to report without failing while adopting |
-| `certkit-version` | latest | version specifier, e.g. `==0.1.0` — **pin this** |
+| `certkit-ref` | `main` | git ref of certkit to install — branch, tag, or SHA. **Pin this.** |
+| `certkit-version` | — | PyPI specifier. certkit is not on PyPI yet, so leave this empty. |
 | `summary` | `true` | write the table to the job summary |
 
 ## Outputs
@@ -74,17 +75,23 @@ one every ~129 random draws".
 Set `fail-on-refusal: false` on first rollout. The action still annotates and summarises; it just
 does not block. Flip it to `true` once the existing certificates are clean.
 
-## Pin the version
+## Pin the checker
 
 ```yaml
 - uses: nickharris808/certkit-action@main
   with:
     spec: certs/*.spec.json
-    certkit-version: "==0.1.0"
+    certkit-ref: "21cc7ac"   # any branch, tag, or commit SHA
 ```
 
-Leaving `certkit-version` unset installs the newest release, which means a checker upgrade can change
-your build result without a commit. For a security gate that is usually the wrong trade.
+The action installs certkit from GitHub, because certkit is not published to PyPI yet. `certkit-ref`
+is therefore how you pin, and a full commit SHA is the strongest form. Leaving it at `main` tracks
+the tip, which means a checker upgrade can change your build result without a commit on your side —
+for a security gate that is usually the wrong trade.
+
+There is also a `certkit-version` input for a PyPI specifier. **Leave it empty.** certkit is not on
+PyPI, so setting it fails the step with an explicit error telling you to use `certkit-ref` instead;
+it exists so the switch to PyPI later needs no change to this action.
 
 ## Why a script, not a `run:` block
 
