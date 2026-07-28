@@ -1,13 +1,17 @@
 # certkit-action
 
 [![self-test](https://github.com/nickharris808/certkit-action/actions/workflows/self-test.yml/badge.svg)](https://github.com/nickharris808/certkit-action/actions/workflows/self-test.yml)
-[![Marketplace](https://img.shields.io/badge/GitHub%20Marketplace-certkit-blue.svg)](https://github.com/marketplace/actions/certkit)
+[![status](https://img.shields.io/badge/status-pre--release-orange.svg)](#usage)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 **Re-check proof certificates in CI. Fail the build when one does not check out.**
 
+> **Try it now, no install:** [open the browser demo](https://huggingface.co/spaces/nickh007/certkit-demo) and press **Load a forgery** — the checker refuses it, client-side.
+
+<a id="usage"></a>
+
 ```yaml
-- uses: your-org/certkit-action@v1
+- uses: nickharris808/certkit-action@main
   with:
     spec: certs/*.spec.json
 ```
@@ -50,7 +54,7 @@ log.
 ## Counting how bad a refusal is
 
 ```yaml
-- uses: your-org/certkit-action@v1
+- uses: nickharris808/certkit-action@main
   with:
     spec: certs/*.spec.json
     count: "true"
@@ -69,7 +73,7 @@ does not block. Flip it to `true` once the existing certificates are clean.
 ## Pin the version
 
 ```yaml
-- uses: your-org/certkit-action@v1
+- uses: nickharris808/certkit-action@main
   with:
     spec: certs/*.spec.json
     certkit-version: "==0.1.0"
@@ -88,7 +92,7 @@ actions end up broken for months without anyone noticing.
 Run them locally:
 
 ```bash
-pip install certkit exploit-counter pytest
+pip install "certkit@git+https://github.com/nickharris808/certkit@main" "exploit-counter@git+https://github.com/nickharris808/exploit-counter@main" pytest
 pytest tests
 ```
 
@@ -112,6 +116,19 @@ search that drives them are **not** in this repository and are available commerc
 The split is deliberate and permanent. **The checker is free and always will be** — a certificate you
 cannot independently verify is worth nothing, so charging for verification would defeat the format.
 What costs money is *producing* certificates at scale.
+
+## The rest of the toolkit
+
+| | |
+|---|---|
+| **[certkit](https://github.com/nickharris808/certkit)** | the certificate format and the independent checker |
+| **[exploit-counter](https://github.com/nickharris808/exploit-counter)** | if a guard is unsound, exactly how many states escape |
+| **[crs-mcp](https://github.com/nickharris808/crs-mcp)** | the verdict surface AI coding agents call, over MCP |
+| **[soundnessbench](https://github.com/nickharris808/soundnessbench)** | the benchmark that grades all of the above |
+| **[certkit-action](https://github.com/nickharris808/certkit-action)** | run the check in your CI |
+| **[pytest-mutation-verified](https://github.com/nickharris808/pytest-mutation-verified)** | prove your regression test can actually fail |
+| **[cve-proof-corpus](https://huggingface.co/datasets/nickh007/cve-proof-corpus)** | six real CVEs with machine-checkable proofs |
+| **[Try it in your browser](https://huggingface.co/spaces/nickh007/certkit-demo)** | no install; watch a forgery get refused |
 
 ## License
 
