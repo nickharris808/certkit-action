@@ -64,80 +64,67 @@ def write_summary(markdown: str) -> None:
         fh.write(markdown + "\n")
 
 
-SARIF_RULES = [
-    {
-        "id": "certkit/refused",
-        "name": "CertificateRefused",
-        "shortDescription": {"text": "A proof certificate did not check out"},
-        "fullDescription": {
-            "text": (
-                "The supplied multipliers do not refute the obligation rebuilt from this "
-                "spec. That means the safety property is NOT PROVEN over the declared "
-                "domain. It does not mean the property is false -- certkit refuses, it "
-                "never certifies the negation."
-            )
+# SARIF emission lives in certkit itself (`certkit.report`), so the wording of a
+# finding is identical whether it reaches you through this action, the CLI's
+# `--format sarif`, or another consumer. Two copies would drift.
+#
+# The fallback exists because `certkit-ref` lets you pin an older certkit that
+# predates that module. Pinning should not silently lose SARIF output.
+try:  # certkit >= 0.3
+    from certkit.report import sarif_document, sarif_result
+
+    def _sarif_finding(rule_id: str, spec_path: Path, message: str) -> Dict[str, Any]:
+        verdict = "UNVERIFIED" if rule_id.endswith("unverified") else "REFUSED"
+        return sarif_result(verdict, spec_path.as_posix(), message)
+
+except ImportError:  # pragma: no cover - exercised only against an older pin
+    _FALLBACK_RULES = [
+        {
+            "id": "certkit/refused",
+            "name": "CertificateRefused",
+            "shortDescription": {"text": "A proof certificate did not check out"},
+            "defaultConfiguration": {"level": "error"},
         },
-        "defaultConfiguration": {"level": "error"},
-        "help": {
-            "text": "Run `certkit explain --spec <spec> --cert <cert>` to see the arithmetic."
+        {
+            "id": "certkit/unverified",
+            "name": "CertificateUnverified",
+            "shortDescription": {"text": "A certificate was not bound to its spec"},
+            "defaultConfiguration": {"level": "error"},
         },
-    },
-    {
-        "id": "certkit/unverified",
-        "name": "CertificateUnverified",
-        "shortDescription": {"text": "A certificate was not bound to its spec"},
-        "fullDescription": {
-            "text": (
-                "The multipliers checked out, but fingerprint verification was disabled, "
-                "so nothing establishes that this certificate was issued for this spec. "
-                "This is not an acceptance."
-            )
-        },
-        "defaultConfiguration": {"level": "error"},
-        "help": {"text": "Re-run without --no-fingerprint, or bind the certificate to the spec."},
-    },
-]
+    ]
 
-
-def sarif_document(results: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Wrap findings in a SARIF 2.1.0 run.
-
-    SARIF is how a security finding reaches the GitHub Security tab instead of
-    dying in a job log nobody opens. The schema is large; only the parts GitHub
-    actually consumes are emitted here.
-    """
-    return {
-        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-        "version": "2.1.0",
-        "runs": [
-            {
-                "tool": {
-                    "driver": {
-                        "name": "certkit",
-                        "informationUri": "https://github.com/nickharris808/certkit",
-                        "rules": SARIF_RULES,
-                    }
-                },
-                "results": results,
-            }
-        ],
-    }
-
-
-def sarif_result(rule_id: str, spec_path: Path, message: str) -> Dict[str, Any]:
-    return {
-        "ruleId": rule_id,
-        "level": "error",
-        "message": {"text": message},
-        "locations": [
-            {
-                "physicalLocation": {
-                    "artifactLocation": {"uri": spec_path.as_posix()},
-                    "region": {"startLine": 1},
+    def sarif_document(results: List[Dict[str, Any]]) -> Dict[str, Any]:
+        return {
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "tool": {
+                        "driver": {
+                            "name": "certkit",
+                            "informationUri": "https://github.com/nickharris808/certkit",
+                            "rules": _FALLBACK_RULES,
+                        }
+                    },
+                    "results": results,
                 }
-            }
-        ],
-    }
+            ],
+        }
+
+    def _sarif_finding(rule_id: str, spec_path: Path, message: str) -> Dict[str, Any]:
+        return {
+            "ruleId": rule_id,
+            "level": "error",
+            "message": {"text": message},
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": spec_path.as_posix()},
+                        "region": {"startLine": 1},
+                    }
+                }
+            ],
+        }
 
 
 def run(argv: Optional[List[str]] = None) -> int:
@@ -219,7 +206,7 @@ def run(argv: Optional[List[str]] = None) -> int:
             if verdict == "UNVERIFIED":
                 unverified += 1
             sarif_results.append(
-                sarif_result(
+                _sarif_finding(
                     "certkit/unverified" if verdict == "UNVERIFIED" else "certkit/refused",
                     spec_path,
                     f"{verdict}: {name} -- {reasons}",
