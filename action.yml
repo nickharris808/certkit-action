@@ -1,0 +1,84 @@
+name: "certkit — verify proof certificates"
+description: >-
+  Independently re-check program-admission certificates in CI, and optionally
+  count exactly how many states a guard wrongly admits. Fails the build on a
+  refused certificate.
+author: "certkit contributors"
+
+branding:
+  icon: "check-circle"
+  color: "green"
+
+inputs:
+  spec:
+    description: "Path to a certkit spec JSON file, or a glob such as 'certs/*.spec.json'."
+    required: true
+  cert:
+    description: >-
+      Path to the matching certificate. If omitted, each spec's certificate is
+      inferred by replacing '.spec.json' with '.cert.json'.
+    required: false
+    default: ""
+  count:
+    description: >-
+      Also run exploit-counter and report exact over-acceptance. Requires 'box'.
+    required: false
+    default: "false"
+  box:
+    description: "Variable box for counting, e.g. 'payload=0:255,record_len=0:255'."
+    required: false
+    default: ""
+  fail-on-refusal:
+    description: >-
+      Fail the job when a certificate is refused. Set to 'false' to report
+      without failing (useful when first adopting).
+    required: false
+    default: "true"
+  certkit-version:
+    description: "Version specifier for certkit, e.g. '==0.1.0'. Pin this."
+    required: false
+    default: ""
+  summary:
+    description: "Write results to the GitHub step summary."
+    required: false
+    default: "true"
+
+outputs:
+  accepted:
+    description: "Number of certificates accepted."
+    value: ${{ steps.run.outputs.accepted }}
+  refused:
+    description: "Number of certificates refused."
+    value: ${{ steps.run.outputs.refused }}
+  over-acceptance:
+    description: "Total over-acceptance across counted specs, or empty if counting was off."
+    value: ${{ steps.run.outputs.over_acceptance }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install certkit
+      shell: bash
+      run: |
+        python -m pip install --quiet --upgrade pip
+        python -m pip install --quiet "certkit${{ inputs.certkit-version }}"
+        if [ "${{ inputs.count }}" = "true" ]; then
+          python -m pip install --quiet exploit-counter
+        fi
+
+    - name: Verify certificates
+      id: run
+      shell: bash
+      env:
+        INPUT_SPEC: ${{ inputs.spec }}
+        INPUT_CERT: ${{ inputs.cert }}
+        INPUT_COUNT: ${{ inputs.count }}
+        INPUT_BOX: ${{ inputs.box }}
+        INPUT_FAIL_ON_REFUSAL: ${{ inputs.fail-on-refusal }}
+        INPUT_SUMMARY: ${{ inputs.summary }}
+      run: python "${{ github.action_path }}/verify.py"

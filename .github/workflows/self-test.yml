@@ -1,0 +1,54 @@
+# Self-test: the action verifies certkit's own bundled example certificates.
+# An action that has never run against a real repository is a hypothesis.
+name: self-test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify-valid-certificate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify the bundled valid certificate
+        uses: ./
+        with:
+          spec: examples/heartbleed.spec.json
+          cert: examples/heartbleed.cert.json
+          certkit-version: "==0.1.0"
+
+  reject-forged-certificate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: A forged certificate must fail the job
+        id: forged
+        continue-on-error: true
+        uses: ./
+        with:
+          spec: examples/heartbleed.spec.json
+          cert: examples/heartbleed.forged.json
+          certkit-version: "==0.1.0"
+
+      - name: Assert the forgery was refused
+        shell: bash
+        run: |
+          if [ "${{ steps.forged.outcome }}" != "failure" ]; then
+            echo "::error::the action accepted a forged certificate"
+            exit 1
+          fi
+          echo "forged certificate correctly refused"
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install certkit exploit-counter pytest
+      - run: pytest tests -q
