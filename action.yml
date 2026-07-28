@@ -66,9 +66,13 @@ runs:
       shell: bash
       run: |
         python -m pip install --quiet --upgrade pip
-        python -m pip install --quiet "certkit${{ inputs.certkit-version }}"
+        if [ -n "${{ inputs.certkit-version }}" ]; then
+          python -m pip install --quiet "certkit${{ inputs.certkit-version }}"
+        else
+          python -m pip install --quiet "certkit@git+https://github.com/nickharris808/certkit@main"
+        fi
         if [ "${{ inputs.count }}" = "true" ]; then
-          python -m pip install --quiet exploit-counter
+          python -m pip install --quiet "exploit-counter@git+https://github.com/nickharris808/exploit-counter@main"
         fi
 
     - name: Verify certificates

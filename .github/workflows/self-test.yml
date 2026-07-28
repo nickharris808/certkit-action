@@ -18,7 +18,7 @@ jobs:
         with:
           spec: examples/heartbleed.spec.json
           cert: examples/heartbleed.cert.json
-          certkit-version: "==0.1.0"
+
 
   reject-forged-certificate:
     runs-on: ubuntu-latest
@@ -32,7 +32,7 @@ jobs:
         with:
           spec: examples/heartbleed.spec.json
           cert: examples/heartbleed.forged.json
-          certkit-version: "==0.1.0"
+
 
       - name: Assert the forgery was refused
         shell: bash
@@ -50,5 +50,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install certkit exploit-counter pytest
+      - run: pip install 'certkit@git+https://github.com/nickharris808/certkit@main' 'exploit-counter@git+https://github.com/nickharris808/exploit-counter@main' pytest
       - run: pytest tests -q
