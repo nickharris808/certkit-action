@@ -177,8 +177,12 @@ def run(argv: Optional[List[str]] = None) -> int:
         try:
             cert = json.loads(cert_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            print(f"::error file={spec_path}::cannot read certificate {cert_path}: {exc}")
-            rows.append(f"| `{spec_path}` | ERROR | missing certificate `{cert_path}` |")
+            print(
+                f"::error file={spec_path}::cannot read certificate {cert_path}: {exc}"
+            )
+            rows.append(
+                f"| `{spec_path}` | ERROR | missing certificate `{cert_path}` |"
+            )
             refused += 1
             exit_code = 2
             continue
@@ -198,16 +202,19 @@ def run(argv: Optional[List[str]] = None) -> int:
             rows.append(f"| `{name}` | ACCEPTED | {detail} |")
         else:
             refused += 1
-            reasons = "; ".join(
-                o["reason"] for o in report.obligations if o["reason"]
-            ) or report.reason
+            reasons = (
+                "; ".join(o["reason"] for o in report.obligations if o["reason"])
+                or report.reason
+            )
             print(f"::error file={spec_path}::certkit {verdict} {name}: {reasons}")
             rows.append(f"| `{name}` | **{verdict}** | {reasons} |")
             if verdict == "UNVERIFIED":
                 unverified += 1
             sarif_results.append(
                 _sarif_finding(
-                    "certkit/unverified" if verdict == "UNVERIFIED" else "certkit/refused",
+                    "certkit/unverified"
+                    if verdict == "UNVERIFIED"
+                    else "certkit/refused",
                     spec_path,
                     f"{verdict}: {name} -- {reasons}",
                 )

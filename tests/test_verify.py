@@ -28,19 +28,27 @@ def workspace(tmp_path, monkeypatch):
 
     spec = make_spec(domain, sound_guard, safety, name="hb")
     (tmp_path / "hb.spec.json").write_text(json.dumps(spec))
-    (tmp_path / "hb.cert.json").write_text(json.dumps({
-        "schema": CERT_SCHEMA,
-        "spec_fingerprint": spec["fingerprint"],
-        "obligations": [{"multipliers": {"2": 1, "3": 1}}],
-    }))
+    (tmp_path / "hb.cert.json").write_text(
+        json.dumps(
+            {
+                "schema": CERT_SCHEMA,
+                "spec_fingerprint": spec["fingerprint"],
+                "obligations": [{"multipliers": {"2": 1, "3": 1}}],
+            }
+        )
+    )
 
     # A forged certificate for the same spec.
     (tmp_path / "bad.spec.json").write_text(json.dumps(spec))
-    (tmp_path / "bad.cert.json").write_text(json.dumps({
-        "schema": CERT_SCHEMA,
-        "spec_fingerprint": spec["fingerprint"],
-        "obligations": [{"multipliers": {"0": 1, "1": 1}}],
-    }))
+    (tmp_path / "bad.cert.json").write_text(
+        json.dumps(
+            {
+                "schema": CERT_SCHEMA,
+                "spec_fingerprint": spec["fingerprint"],
+                "obligations": [{"multipliers": {"0": 1, "1": 1}}],
+            }
+        )
+    )
 
     for key in list(os.environ):
         if key.startswith("INPUT_") or key in ("GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY"):
@@ -189,7 +197,9 @@ def test_no_sarif_written_when_the_input_is_empty(workspace, monkeypatch):
     assert list(workspace.glob("*.sarif")) == []
 
 
-def test_unwritable_sarif_path_does_not_change_the_verdict(workspace, monkeypatch, capsys):
+def test_unwritable_sarif_path_does_not_change_the_verdict(
+    workspace, monkeypatch, capsys
+):
     """Reporting must never override deciding."""
     (workspace / "a-file").write_text("not a directory", encoding="utf-8")
     monkeypatch.setenv("INPUT_SPEC", str(workspace / "hb.spec.json"))
