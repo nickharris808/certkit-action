@@ -182,6 +182,16 @@ Apache-2.0.
 
 31 tests, and the count in this sentence is checked by one of them. They run `verify.py` end to end against real spec/certificate pairs: each verdict, the glob path, a spec with no certificate beside it, and the SARIF and summary outputs. Exit 3 failing the job has its own test, because that is the decision most likely to be 'fixed' by someone who reads it as a warning.
 
+## Licence, citation, contributing
+
+Apache-2.0 ([`LICENSE`](LICENSE)). If you use this in work you publish, there is machine-readable
+citation metadata in [`CITATION.cff`](CITATION.cff) — GitHub's "Cite this repository" button reads it.
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — the house rules, and the one invariant a change must not break.
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — the module map and where the trust boundary sits.
+- [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) — keyed to the error messages this actually prints.
+- [`SECURITY.md`](SECURITY.md) — a checker that accepts something false is the highest severity class here.
+
 ---
 
 Part of **[certified discovery](https://nickharris808.github.io/certified-discovery/)** — ten artifacts built on one asymmetry: checking a proof is cheap and auditable, so the thing that produced it does not have to be trusted.
