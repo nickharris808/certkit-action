@@ -45,6 +45,20 @@ The action has no privileged path. If your local run disagrees with CI, the inpu
 
 ## Can it check every certificate in the repository?
 
-Not yet — it takes one pair. For a directory sweep use the pre-commit hook or the GitLab/CircleCI
-templates in the `certkit` repository, all of which fail when a `*.cert.json` has no `*.spec.json`
-beside it rather than skipping it.
+Yes — `spec` accepts a glob, and each certificate is inferred from its spec's name:
+
+```yaml
+- uses: nickharris808/certkit-action@main
+  with:
+    spec: "certs/*.spec.json"
+```
+
+Every match is checked, the job fails if any is refused, and the summary reports
+`N accepted, M refused`. A pattern that matches **nothing** is an error rather than an empty pass.
+
+## `no files matched spec pattern`
+
+The glob matched nothing. Quote it in YAML (`spec: "certs/*.spec.json"`) so the shell does not
+expand it first, and remember the path is relative to the repository root, not to the workflow file.
+This is deliberately an error: a gate that reported success for checking no files would be the exact
+failure this toolkit exists to prevent.

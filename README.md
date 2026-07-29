@@ -177,6 +177,11 @@ What costs money is *producing* certificates at scale.
 
 Apache-2.0.
 
+
+## Tests
+
+31 tests, and the count in this sentence is checked by one of them. They run `verify.py` end to end against real spec/certificate pairs: each verdict, the glob path, a spec with no certificate beside it, and the SARIF and summary outputs. Exit 3 failing the job has its own test, because that is the decision most likely to be 'fixed' by someone who reads it as a warning.
+
 ---
 
 Part of **[certified discovery](https://nickharris808.github.io/certified-discovery/)** — ten artifacts built on one asymmetry: checking a proof is cheap and auditable, so the thing that produced it does not have to be trusted.
